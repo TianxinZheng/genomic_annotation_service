@@ -1,0 +1,7 @@
+#!/bin/bash
+source /home/ubuntu/.virtualenvs/mpcs/bin/activate
+aws s3 cp s3://mpcs-students/txzheng/gas.zip /home/ubuntu/
+unzip /home/ubuntu/gas.zip -d /home/ubuntu/
+chown -R ubuntu:ubuntu /home/ubuntu/gas
+aws s3 cp s3://mpcs-resources/ssl /usr/local/src/ssl --recursive 
+sudo -u ubuntu /home/ubuntu/gas/web/run_gas.sh &
