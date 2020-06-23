@@ -49,12 +49,12 @@ The diagram below shows the various GAS components and interactions:
 
 <img src="https://github.com/TianxinZheng/genomic_annotation_service/blob/master/system.png">
 
-## File structure
-*web* folder contains the gas web server code
-*ann* folder contains the annotator service code
-*util* folder contains utility code for notification, archiving files and restoring files
-*aws* folder contains user data file for automated deployment of the web server and annotator server
-(All the configuration files are removed for privacy)
+## Directory structure
+Directory contents are as follows:
+* `/web` - The GAS web app files
+* `/ann` - Annotator files
+* `/util` - Utility scripts for notifications, archival, and restoration
+* `/aws` - AWS user data files for automated deployment
 
 ## GAS Scalability
 
