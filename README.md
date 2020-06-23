@@ -47,7 +47,7 @@ The GAS will comprise the following components:
 
 The diagram below shows the various GAS components and interactions:
 
-<img src="https://github.com/TianxinZheng/genomic_annotation_ service/blob/master/system.png">
+<img src="https://github.com/TianxinZheng/genomic_annotation_service/blob/master/system.png">
 
 ## File structure
 *web* folder contains the gas web server code
