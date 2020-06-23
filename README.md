@@ -1,4 +1,4 @@
-﻿# Genomic Annotation Service
+﻿# Genomics Annotation Service
 
 ## About
 
