@@ -28,62 +28,65 @@ s3 = boto3.client('s3', region_name=config['aws']['AwsRegionName'])
 dynamodb = boto3.resource('dynamodb', region_name=config['aws']['AwsRegionName'])
 ann_table = dynamodb.Table(config['aws']["AnnTableName"])
 glacier = boto3.resource('glacier', region_name=config['aws']['AwsRegionName'])
-while True:
-    # Attempt to read a message from the queue
-    # Use long polling - DO NOT use sleep() to wait between polls
-    messages = queue.receive_messages(WaitTimeSeconds=20)
-    if (len(messages) > 0):
-        message = messages[0]
-        body = json.loads(message.body)['Message']
-        info = json.loads(body)
-        retrieval_job_id = info["JobId"]
-        archive_id = info['ArchiveId']
-        job = glacier.Job('-', config['aws']['AwsGlacierVault'], retrieval_job_id)
-        
-        #get job output
-        try: 
-            response = job.get_output()
-            job_data = response['body']
-        except ClientError as e:
-            print("Get job output failed: " + str(e)) 
-        
-        #get the s3 key to upload to
-        print("archive_id " + archive_id)
-        try:
-            response = ann_table.query(
-                IndexName='results_file_archive_id_index',
-                KeyConditionExpression=Key('results_file_archive_id').eq(archive_id)
-            )
+
+def go():
+    while True:
+        # Attempt to read a message from the queue
+        # Use long polling - DO NOT use sleep() to wait between polls
+        messages = queue.receive_messages(WaitTimeSeconds=20)
+        if (len(messages) > 0):
+            message = messages[0]
+            body = json.loads(message.body)['Message']
+            info = json.loads(body)
+            retrieval_job_id = info["JobId"]
+            archive_id = info['ArchiveId']
+            job = glacier.Job('-', config['aws']['AwsGlacierVault'], retrieval_job_id)
             
-        except ClientError as e:
-            print("Query from dynamodb failed: " + str(e))
-        print("response" + str(response))
-        item = response['Items'][0]
-        s3_key_result_file = item['s3_key_result_file']
+            #get job output
+            try: 
+                response = job.get_output()
+                job_data = response['body']
+            except ClientError as e:
+                print("Get job output failed: " + str(e)) 
+            
+            #get the s3 key to upload to
+            print("archive_id " + archive_id)
+            try:
+                response = ann_table.query(
+                    IndexName='results_file_archive_id_index',
+                    KeyConditionExpression=Key('results_file_archive_id').eq(archive_id)
+                )
+                
+            except ClientError as e:
+                print("Query from dynamodb failed: " + str(e))
+            print("response" + str(response))
+            item = response['Items'][0]
+            s3_key_result_file = item['s3_key_result_file']
 
-        #upload job output to s3 bucket
-        try:
-            response = s3.upload_fileobj(job_data, config['aws']['ResultBucketName'], s3_key_result_file)
-        except ClientError as e:
-            print("Can't upload restored file to S3.")
+            #upload job output to s3 bucket
+            try:
+                response = s3.upload_fileobj(job_data, config['aws']['ResultBucketName'], s3_key_result_file)
+            except ClientError as e:
+                print("Can't upload restored file to S3.")
 
-        #delete file from glacier
-        glacier_client = boto3.client('glacier', region_name=config['aws']['AwsRegionName'])
-        try:
-            response = glacier_client.delete_archive(
-                vaultName=config['aws']['AwsGlacierVault'],
-                archiveId=archive_id
-            )
-        except ClientError as e:
-            print("Can't delete archive from glacier.")
+            #delete file from glacier
+            glacier_client = boto3.client('glacier', region_name=config['aws']['AwsRegionName'])
+            try:
+                response = glacier_client.delete_archive(
+                    vaultName=config['aws']['AwsGlacierVault'],
+                    archiveId=archive_id
+                )
+            except ClientError as e:
+                print("Can't delete archive from glacier.")
 
-        #delete message
-        try:
-            delete_response = message.delete()
-        except ClientError as e:
-            print("Can't delete message.")
+            #delete message
+            try:
+                delete_response = message.delete()
+            except ClientError as e:
+                print("Can't delete message.")
        
-
+if __name__ == "__main__":
+    go()
 
 #reference:
 #https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glacier.html#Glacier.Job.get_output

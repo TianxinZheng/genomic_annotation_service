@@ -28,64 +28,66 @@ dynamodb = boto3.resource('dynamodb', region_name=config['aws']['AwsRegionName']
 ann_table = dynamodb.Table(config['aws']["AnnTableName"])
 glacier_client = boto3.client('glacier', region_name=config['aws']['AwsRegionName'])
 # Poll the message queue in a loop 
-while True:
-    # Attempt to read a message from the queue
-    # Use long polling - DO NOT use sleep() to wait between polls
-    messages = restore_queue.receive_messages(WaitTimeSeconds=20)
-    if (len(messages) > 0):
-        message = messages[0]
-        body = json.loads(message.body)['Message']
-        info = json.loads(body)
-        archive_ids = []
-        user_id = info['user_id']
+def go():
+	while True:
+	    # Attempt to read a message from the queue
+	    # Use long polling - DO NOT use sleep() to wait between polls
+	    messages = restore_queue.receive_messages(WaitTimeSeconds=20)
+	    if (len(messages) > 0):
+	        message = messages[0]
+	        body = json.loads(message.body)['Message']
+	        info = json.loads(body)
+	        archive_ids = []
+	        user_id = info['user_id']
 
-        #get all archive ids
-        try:
-            response = ann_table.query(
-                IndexName='user_id_index',
-                KeyConditionExpression=Key('user_id').eq(user_id)
-            )
-            for item in response['Items']:
-                if 'results_file_archive_id' in item:
-                    archive_ids.append(item['results_file_archive_id'])
-        except ClientError as e:
-            print("Query from dynamodb failed: " + str(e))
+	        #get all archive ids
+	        try:
+	            response = ann_table.query(
+	                IndexName='user_id_index',
+	                KeyConditionExpression=Key('user_id').eq(user_id)
+	            )
+	            for item in response['Items']:
+	                if 'results_file_archive_id' in item:
+	                    archive_ids.append(item['results_file_archive_id'])
+	        except ClientError as e:
+	            print("Query from dynamodb failed: " + str(e))
 
-        #initiate restore 
-        for archive_id in archive_ids:
-            try:
-                response = glacier_client.initiate_job(
-                    vaultName=config['aws']['AwsGlacierVault'],
-                    jobParameters={
-                        'Type':"archive-retrieval",
-                        'ArchiveId': archive_id,
-                        'SNSTopic': config['aws']['SNSThawTopicArn'],
-                        'Tier': "Expedited",
-                    }
-                )
-            except ClientError as e:
-                try:
-                    response = glacier_client.initiate_job(
-                        vaultName=config['aws']['AwsGlacierVault'],
-                        jobParameters={
-                            'Type':"archive-retrieval",
-                            'ArchiveId': archive_id,
-                            'SNSTopic': config['aws']['SNSThawTopicArn'],
-                            'Tier': "Standard",
-                        }
-                    )
-                    print(response)
-                    
-                       
-                except ClientError as e:
-                    print("Restore job request failed: " + str(e))
-        try:
-            delete_response = message.delete()
-        except ClientError as e:
-            print("Can't delete message.")
+	        #initiate restore 
+	        for archive_id in archive_ids:
+	            try:
+	                response = glacier_client.initiate_job(
+	                    vaultName=config['aws']['AwsGlacierVault'],
+	                    jobParameters={
+	                        'Type':"archive-retrieval",
+	                        'ArchiveId': archive_id,
+	                        'SNSTopic': config['aws']['SNSThawTopicArn'],
+	                        'Tier': "Expedited",
+	                    }
+	                )
+	            except ClientError as e:
+	                try:
+	                    response = glacier_client.initiate_job(
+	                        vaultName=config['aws']['AwsGlacierVault'],
+	                        jobParameters={
+	                            'Type':"archive-retrieval",
+	                            'ArchiveId': archive_id,
+	                            'SNSTopic': config['aws']['SNSThawTopicArn'],
+	                            'Tier': "Standard",
+	                        }
+	                    )
+	                    print(response)
+	                    
+	                       
+	                except ClientError as e:
+	                    print("Restore job request failed: " + str(e))
+	        try:
+	            delete_response = message.delete()
+	        except ClientError as e:
+	            print("Can't delete message.")
 
 
-
+if __name__ == "__main__":
+	go()
 
 
 #reference:
